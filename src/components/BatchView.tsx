@@ -22,19 +22,20 @@ function rowStatus(t: Transfer | undefined, wallet: string): RowStatus {
   if (!t) return { label: "Not started", tone: "muted" };
   const dest = t.destinations?.find((d) => d.wallet === wallet);
   const lastHopSig = t.route?.hops.at(-1)?.txSignature ?? t.signatures?.hops.at(-1) ?? null;
-  const received = dest?.amountRaw ?? t.recipientReceivesRaw;
   if (dest?.status === "paid" || (!dest && t.status === "completed")) {
+    // Only a confirmed payout counts as received: this value also goes into the receipt CSV.
+    const received = dest?.amountRaw ?? t.recipientReceivesRaw;
     return { label: "Paid", tone: "ok", received, signature: dest?.payoutSignature ?? lastHopSig, paidAt: dest?.paidAt };
   }
   switch (t.status) {
     case "quote":
     case "awaiting_signature":
-      return { label: "Awaiting signature", tone: "muted", received };
+      return { label: "Awaiting signature", tone: "muted" };
     case "processing":
-      return { label: t.phase === "deploying" ? "Setting up route" : "Screening", tone: "busy", received };
+      return { label: t.phase === "deploying" ? "Setting up route" : "Screening", tone: "busy" };
     case "active": {
       const p = t.progress;
-      return { label: p && p.hopsCompleted < p.hopsTotal ? `Routing ${p.hopsCompleted}/${p.hopsTotal}` : "Paying out", tone: "busy", received };
+      return { label: p && p.hopsCompleted < p.hopsTotal ? `Routing ${p.hopsCompleted}/${p.hopsTotal}` : "Paying out", tone: "busy" };
     }
     case "refunded":
       return { label: "Refunded to you", tone: "bad" };
@@ -43,7 +44,7 @@ function rowStatus(t: Transfer | undefined, wallet: string): RowStatus {
     case "failed":
       return { label: "Failed", tone: "bad" };
     default:
-      return { label: t.status, tone: "muted", received };
+      return { label: t.status, tone: "muted" };
   }
 }
 
@@ -225,7 +226,7 @@ export function BatchView({ id }: { id: string }) {
             <Link href="/" className="text-xs text-brand hover:underline">← All batches</Link>
             <h1 className="mt-1 text-2xl font-bold">{batch.name}</h1>
             <p className="mt-1 text-sm text-muted">
-              {formatAmount(total, batch.token.decimals)} {batch.token.symbol} to {batch.recipients.length} recipients · {batch.chunks.length} route
+              {formatAmount(total, batch.token.decimals)} {batch.token.symbol} to {batch.recipients.length} recipient{batch.recipients.length === 1 ? "" : "s"} · {batch.chunks.length} route
               {batch.chunks.length === 1 ? "" : "s"} · {batch.hops} hops
               {batch.feeCoveredBySender && " · fee covered by sender"}
             </p>
